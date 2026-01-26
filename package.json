@@ -2,7 +2,7 @@
   "name": "cnc-layout-planner",
   "private": true,
   "version": "0.1.1",
-  "description": "Visually plan CNC layouts by uploading DXF files and auto-arranging them on your machine bed.",
+  "description": "Visually plan CNC layouts by uploading SVG or DXF files and auto-arranging them on your machine bed.",
   "type": "module",
   "scripts": {
     "dev": "vite",

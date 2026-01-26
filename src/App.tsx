@@ -1,7 +1,7 @@
 import { type DragEventHandler, useCallback, useEffect, useMemo, useState } from 'react';
 import { arrangeDesigns, canFitWithin, type BedLayout } from './utils/arrange';
 import type { ParsedDesign } from './utils/dxf';
-import { parseDxfFile } from './utils/dxf';
+import { parseDesignFile } from './utils/design-files';
 import { buildBedSvg, polylineToPath } from './utils/svg';
 import { buildChecklistPdf } from './utils/checklist';
 import packageInfo from '../package.json';
@@ -154,10 +154,10 @@ function App() {
 
     for (const file of Array.from(files)) {
       try {
-        const next = await parseDxfFile(file);
+        const next = await parseDesignFile(file);
         parsed.push(next);
       } catch (error) {
-        const details = error instanceof Error ? error.message : 'Unable to parse DXF file.';
+        const details = error instanceof Error ? error.message : 'Unable to parse design file.';
         errors.push(`${file.name}: ${details}`);
       }
     }
@@ -315,11 +315,11 @@ function App() {
         <div>
           <p className="eyebrow">CNC Layout Planner</p>
           <h1>
-            Bring DXF files together, specify run counts, and preview each bed before you cut.
+            Bring SVG or DXF files together, specify run counts, and preview each bed before you cut.
           </h1>
           <p className="lede">
-            Upload as many DXF parts as you need. Set your cutting bed dimensions, choose spacing,
-            then export a ready-to-review SVG layout for every bed required.
+            Upload as many SVG or DXF parts as you need. Set your cutting bed dimensions, choose
+            spacing, then export a ready-to-review SVG layout for every bed required.
           </p>
           <div className="hero-stats">
             <div>
@@ -421,22 +421,22 @@ function App() {
 
           <div className="upload-card">
             <label
-              htmlFor="dxf-upload"
+              htmlFor="vector-upload"
               className="drop-area"
               onDrop={handleDrop}
               onDragOver={handleDragOver}
             >
               <div>
-                <p className="drop-title">Drop DXF files here or browse</p>
+                <p className="drop-title">Drop SVG or DXF files here or browse</p>
                 <p className="drop-subtitle">
                   We&apos;ll parse outlines directly in the browser. Nothing is uploaded.
                 </p>
               </div>
               <span className="browse-btn">Select files</span>
               <input
-                id="dxf-upload"
+                id="vector-upload"
                 type="file"
-                accept=".dxf"
+                accept=".svg,.dxf"
                 multiple
                 onChange={(event) => {
                   handleFiles(event.target.files);
@@ -445,7 +445,7 @@ function App() {
               />
             </label>
             <div className="upload-meta">
-              {isLoading && <p className="status">Parsing DXF data…</p>}
+              {isLoading && <p className="status">Parsing design data…</p>}
               {statusMessage && <p className="status success">{statusMessage}</p>}
               {errorMessage && <p className="status error">{errorMessage}</p>}
             </div>
@@ -462,7 +462,7 @@ function App() {
             </div>
             {designs.length === 0 && (
               <p className="empty-state">
-                No files yet. Bring in one or more DXF files to see the arrangement.
+                No files yet. Bring in one or more SVG or DXF files to see the arrangement.
               </p>
             )}
             <ul>
@@ -557,7 +557,7 @@ function App() {
               <div className="empty-preview">
                 <p>
                   {designs.length === 0
-                    ? 'Load DXF files to visualize the layout.'
+                    ? 'Load SVG or DXF files to visualize the layout.'
                     : workWidth <= 0 || workHeight <= 0
                     ? 'Clamp border leaves no usable workspace. Reduce the border or increase machine size.'
                     : 'All current parts exceed the bed. Increase the machine size or remove them.'}

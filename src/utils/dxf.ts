@@ -19,7 +19,7 @@ export interface ParsedDesign {
   quantity: number;
 }
 
-interface Bounds {
+export interface Bounds {
   minX: number;
   minY: number;
   maxX: number;
@@ -37,7 +37,7 @@ interface TransformMatrix {
 
 type BlockDictionary = Record<string, { entities?: any[] } | undefined>;
 
-const MIN_LAYOUT_SIZE = 1;
+export const MIN_LAYOUT_SIZE = 1;
 const EPSILON = 1e-5;
 const identityTransform: TransformMatrix = { a: 1, b: 0, c: 0, d: 1, tx: 0, ty: 0 };
 
@@ -53,17 +53,10 @@ export async function parseDxfFile(file: File): Promise<ParsedDesign> {
     throw new Error('No drawable vectors were found in the DXF file.');
   }
 
-  const bounds = getBounds(rawPolylines);
-  const normalizedPolylines = rawPolylines.map((polyline) => ({
-    closed: polyline.closed,
-    points: polyline.points.map((point) => ({
-      x: point.x - bounds.minX,
-      y: point.y - bounds.minY,
-    })),
-  }));
+  const { bounds, polylines: normalizedPolylines } = normalizePolylines(rawPolylines);
 
   return {
-    id: buildId(),
+    id: buildDesignId(),
     name: file.name.replace(/\.dxf$/i, ''),
     width: Math.max(bounds.maxX - bounds.minX, MIN_LAYOUT_SIZE),
     height: Math.max(bounds.maxY - bounds.minY, MIN_LAYOUT_SIZE),
@@ -72,7 +65,20 @@ export async function parseDxfFile(file: File): Promise<ParsedDesign> {
   };
 }
 
-function buildId() {
+export function normalizePolylines(polylines: PolylineShape[]) {
+  const bounds = getBounds(polylines);
+  const normalized = polylines.map((polyline) => ({
+    closed: polyline.closed,
+    points: polyline.points.map((point) => ({
+      x: point.x - bounds.minX,
+      y: point.y - bounds.minY,
+    })),
+  }));
+
+  return { bounds, polylines: normalized };
+}
+
+export function buildDesignId() {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return crypto.randomUUID();
   }
@@ -191,7 +197,7 @@ function isPoint(candidate: Point | null): candidate is Point {
   return Boolean(candidate);
 }
 
-function getBounds(polylines: PolylineShape[]): Bounds {
+export function getBounds(polylines: PolylineShape[]): Bounds {
   let minX = Number.POSITIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
   let maxX = Number.NEGATIVE_INFINITY;
@@ -207,7 +213,7 @@ function getBounds(polylines: PolylineShape[]): Bounds {
   });
 
   if (!isFinite(minX) || !isFinite(minY) || !isFinite(maxX) || !isFinite(maxY)) {
-    throw new Error('Unable to determine DXF bounds.');
+    throw new Error('Unable to determine vector bounds.');
   }
 
   return { minX, minY, maxX, maxY };

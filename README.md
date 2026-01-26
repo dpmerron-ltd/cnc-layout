@@ -1,10 +1,10 @@
 # CNC Layout Planner
 
-Single-page web application for quickly arranging DXF parts on a CNC / laser machine bed directly in the browser.
+Single-page web application for quickly arranging SVG or DXF parts on a CNC / laser machine bed directly in the browser.
 
 ## Features
 
-- Drag-and-drop multi-file DXF uploader (handled client-side, nothing sent to a server).
+- Drag-and-drop multi-file SVG/DXF uploader (handled client-side, nothing sent to a server).
 - Configurable machine envelope, spacing, clamp border, project naming, and per-part quantity controls with instant updates.
 - Automatic shelf-style nesting that spills into additional beds when required.
 - High-contrast SVG preview (per-bed) with grid overlay and one-click per-bed SVG exports.
@@ -52,13 +52,13 @@ Two options are available:
 
 ## How it Works
 
-- **DXF parsing** – Uses `dxf-parser` in tolerant mode. Lines, polylines, circles, arcs, ellipses, and splines are converted into simplified polylines for rendering and measurement.
+- **Vector parsing** – DXF files are parsed via `dxf-parser` (tolerant mode) and SVG files are interpreted directly in the browser. Lines, polylines, circles, arcs, ellipses, splines, and SVG paths are converted into simplified polylines for rendering and measurement.
 - **Arrangement** – A best-fit bin-packing engine (with automatic 90° rotation) respects quantities, spacing, and spills gracefully into additional beds only when the envelope is fully utilized.
 - **Rendering / Export** – Each bed is drawn as an SVG with a subtle grid. The layout view mirrors the colors used in the design list, and a single click exports every bed into one SVG file for downstream CAM review.
 
 ## Notes
 
-- DXF units are treated as millimetres.
+- DXF units are treated as millimetres. SVG coordinates are taken as-is (the layout planner assumes your SVG units are already in millimetres or a consistent scale).
 - Curved polyline bulges, arcs, splines, and block INSERT entities (with arrays, rotation, and scaling) are expanded into dense polylines so keyholes and other rounded features remain true to shape.
 - The nesting algorithm automatically checks both orientations (0°/90°) before flagging a part as oversized; rotate in CAD only if you need a non-orthogonal angle.
 
