@@ -4,8 +4,10 @@ import type { ParsedDesign } from './utils/dxf';
 import { parseDxfFile } from './utils/dxf';
 import { buildBedSvg, polylineToPath } from './utils/svg';
 import { buildChecklistPdf } from './utils/checklist';
+import packageInfo from '../package.json';
 
 const accentPalette = ['#ef476f', '#ffd166', '#06d6a0', '#118ab2', '#8338ec'];
+const appVersion = packageInfo.version ?? 'dev';
 
 interface TrafficSummary {
   count: number;
@@ -344,8 +346,11 @@ function App() {
             </div>
           </div>
           <p className="traffic-note">
-            Visitor stats refresh from GitHub traffic logs
-            {traffic?.collectedAt ? ` · updated ${new Date(traffic.collectedAt).toLocaleString()}` : ''}
+            <span>
+              Visitor stats refresh from GitHub traffic logs
+              {traffic?.collectedAt ? ` · updated ${new Date(traffic.collectedAt).toLocaleString()}` : ''}
+            </span>
+            <span className="version-pill">Build v{appVersion}</span>
           </p>
         </div>
       </header>

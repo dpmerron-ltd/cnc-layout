@@ -93,3 +93,14 @@ Use the “Download bed checklist (PDF)” button in the layout preview panel to
 - A grouped list of parts with quantities, sizes, and checkbox placeholders so the on-machine crew can tick items off as they’re cut.
 
 PDF generation runs entirely in the browser via `jsPDF`, so no data ever leaves your machine. If you’ve granted the app file-system access, the PDF will drop into that folder; otherwise it downloads like the SVG exports.
+
+## Versioning & release tags
+
+- The UI surfaces the current build version (sourced from `package.json`) in the hero header so you always know which release is deployed.
+- Before pushing changes, bump the version with `npm version <patch|minor|major> --no-git-tag-version` and commit the resulting `package.json` / lockfile updates.
+- After pushing, tag the release in git so deployments can follow semver history:
+
+  ```bash
+  git tag -a v0.1.1 -m "Release 0.1.1"
+  git push --follow-tags
+  ```
