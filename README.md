@@ -68,12 +68,18 @@ Visitor counts inside the hero card are powered by GitHub's built-in traffic met
 - A GitHub Actions workflow (`.github/workflows/update-traffic.yml`) runs daily (and can be triggered manually) to pull the latest `views`/`uniques` data and write it to `docs/traffic.json`.
 - The front-end reads `traffic.json` at runtime and displays the unique visitor total for the last 14 days.
 
+### Required setup
+
+1. Create a Personal Access Token (classic or fine-grained) with `repo` scope (needed for the GitHub Traffic API).
+2. Add the token to the repository secrets as `TRAFFIC_TOKEN`.
+3. (Optional fallback) If you do not supply `TRAFFIC_TOKEN`, the workflow will try the default GitHub Actions token, but this usually lacks the required scope for traffic endpoints.
+
 ### Manual refresh / first run
 
 GitHub traffic endpoints only return data for repositories with GitHub Pages enabled and at least one visit. To seed the file:
 
 ```bash
-node scripts/update-traffic.mjs
+TRAFFIC_TOKEN=ghp_your_token_here node scripts/update-traffic.mjs
 ```
 
 Commit the updated `docs/traffic.json`, then deploy as usual. The scheduled workflow will keep the data fresh afterward.

@@ -3,14 +3,14 @@ import { dirname, join } from 'node:path';
 import process from 'node:process';
 
 const repo = process.env.GITHUB_REPOSITORY;
-const token = process.env.GITHUB_TOKEN;
+const token = process.env.TRAFFIC_TOKEN || process.env.GITHUB_TOKEN;
 
 if (!repo) {
   throw new Error('GITHUB_REPOSITORY is required');
 }
 
 if (!token) {
-  throw new Error('GITHUB_TOKEN is required to query traffic endpoints.');
+  throw new Error('TRAFFIC_TOKEN (or GITHUB_TOKEN) is required to query traffic endpoints.');
 }
 
 const headers = {
@@ -24,6 +24,11 @@ async function fetchTraffic(resource) {
   const response = await fetch(`https://api.github.com/repos/${repo}/traffic/${resource}`, { headers });
   if (!response.ok) {
     const text = await response.text();
+    if (response.status === 403) {
+      throw new Error(
+        `GitHub API error (${resource}): 403 – ensure the token has 'repo' scope (PAT in TRAFFIC_TOKEN secret). Response: ${text}`,
+      );
+    }
     throw new Error(`GitHub API error (${resource}): ${response.status} ${text}`);
   }
   return response.json();

@@ -22,6 +22,7 @@ jobs:
 
       - name: Collect traffic stats
         env:
+          TRAFFIC_TOKEN: ${{ secrets.TRAFFIC_TOKEN || secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/update-traffic.mjs
 
