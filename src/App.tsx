@@ -213,6 +213,7 @@ function App() {
             accentPalette[(bed.index + placementIndex + bed.placements.length) % accentPalette.length]
           );
         },
+        { includeMarginOutline: false },
       );
       const fileName = `${sanitizedProjectName}-bed-${bed.index}.svg`;
 

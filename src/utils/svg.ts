@@ -20,6 +20,10 @@ export function polylineToPath(polyline: PolylineShape, offsetX = 0, offsetY = 0
   return commands.join(' ');
 }
 
+interface BedSvgOptions {
+  includeMarginOutline?: boolean;
+}
+
 export function buildBedSvg(
   bed: BedLayout,
   bedWidth: number,
@@ -28,7 +32,9 @@ export function buildBedSvg(
   workHeight: number,
   margin: number,
   colorForDesign: (designId: string, placementIndex: number) => string,
+  options?: BedSvgOptions,
 ) {
+  const includeMarginOutline = options?.includeMarginOutline ?? true;
   const gridId = `export-grid-${bed.id}`;
   const lines: string[] = [];
 
@@ -40,7 +46,7 @@ export function buildBedSvg(
   );
 
   lines.push(`<rect width="${bedWidth}" height="${bedHeight}" fill="url(#${gridId})" />`);
-  if (margin > 0 && workWidth > 0 && workHeight > 0) {
+  if (includeMarginOutline && margin > 0 && workWidth > 0 && workHeight > 0) {
     lines.push(
       `<rect x="${margin}" y="${margin}" width="${workWidth}" height="${workHeight}" fill="none" stroke="rgba(255,255,255,0.4)" stroke-dasharray="8 8" />`,
     );

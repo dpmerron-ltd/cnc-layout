@@ -46,6 +46,7 @@ export async function buildChecklistPdf(beds: BedLayout[], options: ChecklistOpt
       options.workHeight,
       options.margin,
       (designId, placementIndex) => options.colorForPlacement(bed, designId, placementIndex),
+      { includeMarginOutline: false },
     );
     try {
       const preview = await svgToPngDataUrl(svg, options.bedWidth, options.bedHeight);

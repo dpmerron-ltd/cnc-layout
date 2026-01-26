@@ -43,6 +43,11 @@ interface PlacementCandidate {
   leftoverLongSide: number;
 }
 
+interface PlacementPick {
+  bed: WorkingBed;
+  candidate: PlacementCandidate;
+}
+
 export function arrangeDesigns(
   designs: ParsedDesign[],
   bedWidth: number,
@@ -55,22 +60,8 @@ export function arrangeDesigns(
     return [];
   }
 
-  const beds: BedLayout[] = [];
+  const workingBeds: WorkingBed[] = [];
   let bedIndex = 0;
-  let bed = createBed(++bedIndex, bedWidth, bedHeight);
-
-  const finalizeBed = () => {
-    if (!bed.placements.length) {
-      return;
-    }
-    beds.push({
-      id: bed.id,
-      index: bed.index,
-      placements: [...bed.placements],
-      usedWidth: Math.min(bed.usedWidth, bedWidth),
-      usedHeight: Math.min(bed.usedHeight, bedHeight),
-    });
-  };
 
   instances.forEach((instance) => {
     const width = Math.max(instance.design.width, 1);
@@ -79,77 +70,110 @@ export function arrangeDesigns(
       return;
     }
 
-    let placed = false;
-    while (!placed) {
-      const nextPlacement = findPlacement(bed, width, height);
-      if (!nextPlacement) {
-        finalizeBed();
-        bed = createBed(++bedIndex, bedWidth, bedHeight);
-        continue;
+    let bestPlacement = findBestPlacement(workingBeds, width, height);
+    if (!bestPlacement) {
+      const newBed = createBed(++bedIndex, bedWidth, bedHeight);
+      workingBeds.push(newBed);
+      const fallback = findPlacement(newBed, width, height);
+      if (!fallback) {
+        return;
       }
-
-      const candidate: PlacementCandidate = nextPlacement;
-      const placement: Placement = {
-        id: instance.instanceId,
-        x: candidate.rect.x,
-        y: candidate.rect.y,
-        width: candidate.width,
-        height: candidate.height,
-        rotated: candidate.rotated,
-        design: instance.design,
-      };
-
-      bed.placements.push(placement);
-      const extentX = placement.x + placement.width;
-      const extentY = placement.y + placement.height;
-      bed.usedWidth = Math.max(bed.usedWidth, extentX);
-      bed.usedHeight = Math.max(bed.usedHeight, extentY);
-
-      const occupied = {
-        x: placement.x,
-        y: placement.y,
-        width: Math.min(placement.width + normalizedSpacing, bedWidth - placement.x),
-        height: Math.min(placement.height + normalizedSpacing, bedHeight - placement.y),
-      };
-
-      bed.freeRects = splitFreeRects(bed.freeRects, occupied);
-      bed.freeRects = pruneFreeRects(bed.freeRects);
-      placed = true;
+      bestPlacement = { bed: newBed, candidate: fallback };
     }
+
+    placeInBed(bestPlacement.bed, bestPlacement.candidate, instance, normalizedSpacing, bedWidth, bedHeight);
   });
 
-  finalizeBed();
+  return workingBeds
+    .filter((bed) => bed.placements.length)
+    .map((bed) => ({
+      id: bed.id,
+      index: bed.index,
+      placements: [...bed.placements],
+      usedWidth: Math.min(bed.usedWidth, bedWidth),
+      usedHeight: Math.min(bed.usedHeight, bedHeight),
+    }));
 
-  return beds;
+}
 
-  function findPlacement(currentBed: WorkingBed, width: number, height: number) {
-    let bestCandidate: PlacementCandidate | null = null;
-    currentBed.freeRects.forEach((rect) => {
-      const candidates = [tryPlace(rect, width, height, false), tryPlace(rect, height, width, true)];
-      candidates.forEach((candidate) => {
-        if (!candidate) return;
-        if (
-          !bestCandidate ||
-          candidate.score < bestCandidate.score ||
-          (candidate.score === bestCandidate.score && candidate.leftoverLongSide < bestCandidate.leftoverLongSide)
-        ) {
-          bestCandidate = candidate;
-        }
-      });
-    });
-    return bestCandidate;
-  }
-
-  function tryPlace(rect: FreeRect, width: number, height: number, rotated: boolean): PlacementCandidate | null {
-    if (width > rect.width || height > rect.height) {
-      return null;
+function findBestPlacement(beds: WorkingBed[], width: number, height: number): PlacementPick | null {
+  let best: PlacementPick | null = null;
+  beds.forEach((bed) => {
+    const candidate = findPlacement(bed, width, height);
+    if (!candidate) return;
+    if (
+      !best ||
+      candidate.score < best.candidate.score ||
+      (candidate.score === best.candidate.score && candidate.leftoverLongSide < best.candidate.leftoverLongSide)
+    ) {
+      best = { bed, candidate };
     }
-    const leftoverHoriz = Math.abs(rect.width - width);
-    const leftoverVert = Math.abs(rect.height - height);
-    const shortSideFit = Math.min(leftoverHoriz, leftoverVert);
-    const longSideFit = Math.max(leftoverHoriz, leftoverVert);
-    return { rect, width, height, rotated, score: shortSideFit, leftoverLongSide: longSideFit };
+  });
+  return best;
+}
+
+function placeInBed(
+  bed: WorkingBed,
+  candidate: PlacementCandidate,
+  instance: DesignInstance,
+  spacing: number,
+  bedWidth: number,
+  bedHeight: number,
+) {
+  const placement: Placement = {
+    id: instance.instanceId,
+    x: candidate.rect.x,
+    y: candidate.rect.y,
+    width: candidate.width,
+    height: candidate.height,
+    rotated: candidate.rotated,
+    design: instance.design,
+  };
+
+  bed.placements.push(placement);
+  const extentX = placement.x + placement.width;
+  const extentY = placement.y + placement.height;
+  bed.usedWidth = Math.max(bed.usedWidth, extentX);
+  bed.usedHeight = Math.max(bed.usedHeight, extentY);
+
+  const occupied = {
+    x: placement.x,
+    y: placement.y,
+    width: Math.min(placement.width + spacing, bedWidth - placement.x),
+    height: Math.min(placement.height + spacing, bedHeight - placement.y),
+  };
+
+  bed.freeRects = splitFreeRects(bed.freeRects, occupied);
+  bed.freeRects = pruneFreeRects(bed.freeRects);
+}
+
+function findPlacement(currentBed: WorkingBed, width: number, height: number): PlacementCandidate | null {
+  let bestCandidate: PlacementCandidate | null = null;
+  currentBed.freeRects.forEach((rect) => {
+    const candidates = [tryPlace(rect, width, height, false), tryPlace(rect, height, width, true)];
+    candidates.forEach((candidate) => {
+      if (!candidate) return;
+      if (
+        !bestCandidate ||
+        candidate.score < bestCandidate.score ||
+        (candidate.score === bestCandidate.score && candidate.leftoverLongSide < bestCandidate.leftoverLongSide)
+      ) {
+        bestCandidate = candidate;
+      }
+    });
+  });
+  return bestCandidate;
+}
+
+function tryPlace(rect: FreeRect, width: number, height: number, rotated: boolean): PlacementCandidate | null {
+  if (width > rect.width || height > rect.height) {
+    return null;
   }
+  const leftoverHoriz = Math.abs(rect.width - width);
+  const leftoverVert = Math.abs(rect.height - height);
+  const shortSideFit = Math.min(leftoverHoriz, leftoverVert);
+  const longSideFit = Math.max(leftoverHoriz, leftoverVert);
+  return { rect, width, height, rotated, score: shortSideFit, leftoverLongSide: longSideFit };
 }
 
 function expandDesigns(designs: ParsedDesign[]): DesignInstance[] {
