@@ -10,6 +10,7 @@ Single-page web application for quickly arranging DXF parts on a CNC / laser mac
 - High-contrast SVG preview (per-bed) with grid overlay and one-click per-bed SVG exports.
 - Part list with color-coded swatches and inline warnings when a part exceeds the active bed size.
 - Optional File System Access integration lets you target a specific download folder; otherwise files drop into your default browser downloads.
+- Printable per-bed checklist PDF with embedded previews so shop crews can track cuts on paper.
 
 ## Getting Started
 
@@ -59,7 +60,7 @@ Two options are available:
 
 - DXF units are treated as millimetres.
 - Curved polyline bulges, arcs, splines, and block INSERT entities (with arrays, rotation, and scaling) are expanded into dense polylines so keyholes and other rounded features remain true to shape.
-- The current algorithm does not rotate parts automatically. Rotate within your CAD tool if you need a different orientation before uploading.
+- The nesting algorithm automatically checks both orientations (0°/90°) before flagging a part as oversized; rotate in CAD only if you need a non-orthogonal angle.
 
 ## Visitor Stats (optional)
 
@@ -83,3 +84,12 @@ TRAFFIC_TOKEN=ghp_your_token_here node scripts/update-traffic.mjs
 ```
 
 Commit the updated `docs/traffic.json`, then deploy as usual. The scheduled workflow will keep the data fresh afterward.
+
+## Printable checklists
+
+Use the “Download bed checklist (PDF)” button in the layout preview panel to generate a printable sheet for each bed. Every page includes:
+
+- The rendered bed preview (mirroring the SVG export) for quick visual confirmation.
+- A grouped list of parts with quantities, sizes, and checkbox placeholders so the on-machine crew can tick items off as they’re cut.
+
+PDF generation runs entirely in the browser via `jsPDF`, so no data ever leaves your machine. If you’ve granted the app file-system access, the PDF will drop into that folder; otherwise it downloads like the SVG exports.

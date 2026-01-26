@@ -3,6 +3,7 @@ import { arrangeDesigns, canFitWithin, type BedLayout } from './utils/arrange';
 import type { ParsedDesign } from './utils/dxf';
 import { parseDxfFile } from './utils/dxf';
 import { buildBedSvg, polylineToPath } from './utils/svg';
+import { buildChecklistPdf } from './utils/checklist';
 
 const accentPalette = ['#ef476f', '#ffd166', '#06d6a0', '#118ab2', '#8338ec'];
 
@@ -267,6 +268,44 @@ function App() {
     }
   };
 
+  const handleDownloadChecklist = async () => {
+    if (!bedLayouts.length) return;
+    try {
+      const pdfBuffer = await buildChecklistPdf(bedLayouts, {
+        projectName: projectName.trim() || 'CNC Run',
+        bedWidth,
+        bedHeight,
+        workWidth,
+        workHeight,
+        margin: bedMargin,
+        colorForPlacement: (bed, designId, placementIndex) =>
+          colorMap.get(designId) ??
+          accentPalette[(bed.index + placementIndex + bed.placements.length) % accentPalette.length],
+      });
+
+      const fileName = `${sanitizedProjectName}-checklist.pdf`;
+      const pdfBlob = new Blob([pdfBuffer], { type: 'application/pdf' });
+
+      if (downloadDirHandle) {
+        await saveToDirectory(downloadDirHandle, fileName, pdfBlob);
+      } else {
+        const url = URL.createObjectURL(pdfBlob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = fileName;
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        URL.revokeObjectURL(url);
+      }
+
+      setStatusMessage('Checklist PDF downloaded.');
+    } catch (error) {
+      console.error(error);
+      setErrorMessage('Unable to build the checklist PDF.');
+    }
+  };
+
   return (
     <div className="layout-shell">
       <header className="hero">
@@ -472,6 +511,9 @@ function App() {
             <button className="ghost-btn" disabled={!bedLayouts.length} onClick={() => void handleDownloadAllBeds()}>
               Download all beds
             </button>
+            <button className="ghost-btn" disabled={!bedLayouts.length} onClick={() => void handleDownloadChecklist()}>
+              Download bed checklist (PDF)
+            </button>
             {bedCount > 1 && (
               <div className="bed-switcher">
                 <span>
@@ -642,7 +684,7 @@ function delay(ms: number) {
   });
 }
 
-async function saveToDirectory(handle: FileSystemDirectoryHandle, fileName: string, contents: string) {
+async function saveToDirectory(handle: FileSystemDirectoryHandle, fileName: string, contents: string | ArrayBuffer | Blob) {
   const fileHandle = await handle.getFileHandle(fileName, { create: true });
   const writable = await fileHandle.createWritable();
   await writable.write(contents);
