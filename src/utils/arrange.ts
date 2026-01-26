@@ -75,7 +75,9 @@ export function arrangeDesigns(
   instances.forEach((instance) => {
     const width = Math.max(instance.design.width, 1);
     const height = Math.max(instance.design.height, 1);
-    if (width > bedWidth || height > bedHeight) {
+    const fitsNormal = width <= bedWidth && height <= bedHeight;
+    const fitsRotated = height <= bedWidth && width <= bedHeight;
+    if (!fitsNormal && !fitsRotated) {
       return;
     }
 

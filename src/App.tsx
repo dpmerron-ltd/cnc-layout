@@ -58,7 +58,9 @@ function App() {
       const partArea = design.width * design.height * design.quantity;
       area += partArea;
       quantity += design.quantity;
-      if (design.width > workWidth || design.height > workHeight) {
+      const fitsNormal = design.width <= workWidth && design.height <= workHeight;
+      const fitsRotated = design.height <= workWidth && design.width <= workHeight;
+      if (!fitsNormal && !fitsRotated) {
         overs.push(design);
       } else {
         placeable.push(design);
