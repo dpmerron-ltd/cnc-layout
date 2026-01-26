@@ -75,9 +75,7 @@ export function arrangeDesigns(
   instances.forEach((instance) => {
     const width = Math.max(instance.design.width, 1);
     const height = Math.max(instance.design.height, 1);
-    const fitsNormal = width <= bedWidth && height <= bedHeight;
-    const fitsRotated = height <= bedWidth && width <= bedHeight;
-    if (!fitsNormal && !fitsRotated) {
+    if (!canFitWithin(width, height, bedWidth, bedHeight)) {
       return;
     }
 
@@ -279,4 +277,13 @@ function rectanglesIntersect(a: FreeRect, b: { x: number; y: number; width: numb
 
 function isContained(a: FreeRect, b: FreeRect) {
   return a.x >= b.x && a.y >= b.y && a.x + a.width <= b.x + b.width && a.y + a.height <= b.y + b.height;
+}
+
+export function canFitWithin(width: number, height: number, maxWidth: number, maxHeight: number) {
+  if (maxWidth <= 0 || maxHeight <= 0) {
+    return false;
+  }
+  const partDims = [Math.max(0, width), Math.max(0, height)].sort((a, b) => a - b);
+  const spaceDims = [maxWidth, maxHeight].sort((a, b) => a - b);
+  return partDims[0] <= spaceDims[0] && partDims[1] <= spaceDims[1];
 }

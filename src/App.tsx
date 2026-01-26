@@ -1,5 +1,5 @@
 import { type DragEventHandler, useCallback, useEffect, useMemo, useState } from 'react';
-import { arrangeDesigns, type BedLayout } from './utils/arrange';
+import { arrangeDesigns, canFitWithin, type BedLayout } from './utils/arrange';
 import type { ParsedDesign } from './utils/dxf';
 import { parseDxfFile } from './utils/dxf';
 import { buildBedSvg, polylineToPath } from './utils/svg';
@@ -58,9 +58,7 @@ function App() {
       const partArea = design.width * design.height * design.quantity;
       area += partArea;
       quantity += design.quantity;
-      const fitsNormal = design.width <= workWidth && design.height <= workHeight;
-      const fitsRotated = design.height <= workWidth && design.width <= workHeight;
-      if (!fitsNormal && !fitsRotated) {
+      if (!canFitWithin(design.width, design.height, workWidth, workHeight)) {
         overs.push(design);
       } else {
         placeable.push(design);
