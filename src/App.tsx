@@ -6,6 +6,25 @@ import { buildBedSvg, polylineToPath } from './utils/svg';
 
 const accentPalette = ['#ef476f', '#ffd166', '#06d6a0', '#118ab2', '#8338ec'];
 
+interface TrafficSummary {
+  count: number;
+  uniques: number;
+}
+
+interface TrafficSample {
+  timestamp: string;
+  count: number;
+  uniques: number;
+}
+
+interface TrafficReport {
+  collectedAt: string | null;
+  views: TrafficSummary;
+  clones: TrafficSummary;
+  dailyViews: TrafficSample[];
+  dailyClones: TrafficSample[];
+}
+
 function App() {
   const [designs, setDesigns] = useState<ParsedDesign[]>([]);
   const [bedWidth, setBedWidth] = useState(1220);
@@ -20,6 +39,7 @@ function App() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeBedIndex, setActiveBedIndex] = useState(0);
   const [folderMessage, setFolderMessage] = useState<string | null>(null);
+  const [traffic, setTraffic] = useState<TrafficReport | null>(null);
 
   useEffect(() => {
     setFsAccessSupported(typeof window !== 'undefined' && 'showDirectoryPicker' in window);
@@ -83,6 +103,27 @@ function App() {
       .replace(/^-+|-+$/g, '');
     return slug || 'cnc-layout';
   }, [projectName]);
+
+  useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+    const source = `${import.meta.env.BASE_URL ?? '/'}traffic.json`;
+    fetch(source, { cache: 'no-store', signal: controller.signal })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: TrafficReport | null) => {
+        if (!active || !data) {
+          return;
+        }
+        setTraffic(data);
+      })
+      .catch(() => {
+        /* ignore analytics fetch errors */
+      });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, []);
 
   const coverage =
     bedCount && workWidth > 0 && workHeight > 0
@@ -257,7 +298,15 @@ function App() {
               <p>Overall coverage</p>
               <strong>{(coverage * 100).toFixed(1)}%</strong>
             </div>
+            <div>
+              <p>Visitors (14d)</p>
+              <strong>{formatTrafficStat(traffic?.views?.uniques)}</strong>
+            </div>
           </div>
+          <p className="traffic-note">
+            Visitor stats refresh from GitHub traffic logs
+            {traffic?.collectedAt ? ` · updated ${new Date(traffic.collectedAt).toLocaleString()}` : ''}
+          </p>
         </div>
       </header>
 
@@ -578,6 +627,13 @@ function clamp(value: number, min?: number, max?: number) {
     result = Math.min(result, max);
   }
   return result;
+}
+
+function formatTrafficStat(value?: number) {
+  if (typeof value !== 'number' || value < 0) {
+    return '—';
+  }
+  return value.toString();
 }
 
 function delay(ms: number) {

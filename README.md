@@ -60,3 +60,20 @@ Two options are available:
 - DXF units are treated as millimetres.
 - Curved polyline bulges, arcs, splines, and block INSERT entities (with arrays, rotation, and scaling) are expanded into dense polylines so keyholes and other rounded features remain true to shape.
 - The current algorithm does not rotate parts automatically. Rotate within your CAD tool if you need a different orientation before uploading.
+
+## Visitor Stats (optional)
+
+Visitor counts inside the hero card are powered by GitHub's built-in traffic metrics—no external tracker required.
+
+- A GitHub Actions workflow (`.github/workflows/update-traffic.yml`) runs daily (and can be triggered manually) to pull the latest `views`/`uniques` data and write it to `docs/traffic.json`.
+- The front-end reads `traffic.json` at runtime and displays the unique visitor total for the last 14 days.
+
+### Manual refresh / first run
+
+GitHub traffic endpoints only return data for repositories with GitHub Pages enabled and at least one visit. To seed the file:
+
+```bash
+node scripts/update-traffic.mjs
+```
+
+Commit the updated `docs/traffic.json`, then deploy as usual. The scheduled workflow will keep the data fresh afterward.

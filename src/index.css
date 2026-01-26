@@ -79,6 +79,12 @@ body {
   font-size: 1.5rem;
 }
 
+.traffic-note {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
 .workspace {
   display: grid;
   grid-template-columns: minmax(280px, 1fr) minmax(400px, 1.3fr);
