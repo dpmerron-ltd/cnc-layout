@@ -27,19 +27,27 @@ npm run build
 npm run preview   # optional local preview of the build output
 ```
 
+To publish the GitHub Pages site (served from `main/docs`):
+
+```bash
+npm run build:docs   # rebuilds dist/ and copies it to docs/
+git commit docs
+git push
+```
+
 ## Deploying to GitHub Pages
 
-The repository already includes a `deploy.yml` workflow that builds and deploys `dist/` to GitHub Pages.
+Two options are available:
 
-1. Push the project to GitHub (ensure your default branch is `main`).
-2. In the repo settings, enable GitHub Pages → Source: `GitHub Actions`.
-3. On the next push to `main` (or via the “Run workflow” button), the action will:
-   - Install dependencies (`npm ci`)
-   - Run `npm run build`
-   - Upload `dist/` as a Pages artifact
-   - Publish it to the Pages site URL reported in the workflow summary
+1. **Static `docs/` folder (easiest)**
+   - Run `npm run build:docs` locally.
+   - Commit the generated `docs/` folder.
+   - In GitHub → Settings → Pages, choose “Deploy from branch” → `main` / `docs`.
+   - Pages will serve the contents of `docs/` immediately.
 
-Because `vite.config.ts` sets `base: './'`, the build works on sub-paths without extra tweaks.
+2. **GitHub Actions workflow**
+   - Enable GitHub Pages → Source: `GitHub Actions`.
+   - The bundled `deploy.yml` workflow builds `dist/` and deploys automatically on every push to `main`.
 
 ## How it Works
 
