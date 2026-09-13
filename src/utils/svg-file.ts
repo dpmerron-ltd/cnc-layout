@@ -30,7 +30,7 @@ export async function parseSvgFile(file: File): Promise<ParsedDesign> {
   if (!polylines.length) {
     throw new Error('No drawable vectors were found in the SVG file.');
   }
-  const { bounds, polylines: normalized } = normalizePolylines(polylines);
+  const { bounds, polylines: normalized, circles } = normalizePolylines(polylines);
 
   return {
     id: buildDesignId(),
@@ -38,6 +38,7 @@ export async function parseSvgFile(file: File): Promise<ParsedDesign> {
     width: Math.max(bounds.maxX - bounds.minX, MIN_LAYOUT_SIZE),
     height: Math.max(bounds.maxY - bounds.minY, MIN_LAYOUT_SIZE),
     polylines: normalized,
+    circles,
     quantity: 1,
   };
 }

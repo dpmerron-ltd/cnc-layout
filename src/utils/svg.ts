@@ -1,5 +1,5 @@
 import type { BedLayout } from './arrange';
-import type { PolylineShape } from './dxf';
+import type { CircleShape, PolylineShape } from './dxf';
 
 interface PathOptions {
   rotate?: boolean;
@@ -18,6 +18,16 @@ export function polylineToPath(polyline: PolylineShape, offsetX = 0, offsetY = 0
     commands.push('Z');
   }
   return commands.join(' ');
+}
+
+export function transformCircle(circle: CircleShape, offsetX = 0, offsetY = 0, options?: PathOptions) {
+  const { rotate, designHeight = 0 } = options ?? {};
+  const center = rotate ? rotatePoint(circle.center, designHeight) : circle.center;
+  return {
+    cx: center.x + offsetX,
+    cy: center.y + offsetY,
+    r: circle.radius,
+  };
 }
 
 interface BedSvgOptions {
@@ -64,6 +74,16 @@ export function buildBedSvg(
         const stroke = colorForDesign(placement.design.id, placementIndex);
         lines.push(
           `<path d="${path}" fill="none" stroke="${stroke}" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" vector-effect="non-scaling-stroke" />`,
+        );
+      });
+      (placement.design.circles ?? []).forEach((circle) => {
+        const { cx, cy, r } = transformCircle(circle, placement.x, placement.y, {
+          rotate: placement.rotated,
+          designHeight: placement.design.height,
+        });
+        const stroke = colorForDesign(placement.design.id, placementIndex);
+        lines.push(
+          `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${r.toFixed(2)}" fill="none" stroke="${stroke}" stroke-width="1" vector-effect="non-scaling-stroke" />`,
         );
       });
     });

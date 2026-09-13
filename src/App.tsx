@@ -2,7 +2,7 @@ import { type DragEventHandler, useCallback, useEffect, useMemo, useState } from
 import { arrangeDesigns, canFitWithin, type BedLayout } from './utils/arrange';
 import type { ParsedDesign } from './utils/dxf';
 import { parseDesignFile } from './utils/design-files';
-import { buildBedSvg, polylineToPath } from './utils/svg';
+import { buildBedSvg, polylineToPath, transformCircle } from './utils/svg';
 import { buildChecklistPdf } from './utils/checklist';
 import packageInfo from '../package.json';
 
@@ -607,6 +607,24 @@ function App() {
                             vectorEffect="non-scaling-stroke"
                           />
                         ))}
+                        {(placement.design.circles ?? []).map((circle, circleIndex) => {
+                          const { cx, cy, r } = transformCircle(circle, placement.x, placement.y, {
+                            rotate: placement.rotated,
+                            designHeight: placement.design.height,
+                          });
+                          return (
+                            <circle
+                              key={`${placement.id}-circle-${circleIndex}`}
+                              cx={cx}
+                              cy={cy}
+                              r={r}
+                              fill="none"
+                              stroke={colorMap.get(placement.design.id) ?? accentPalette[0]}
+                              strokeWidth={1}
+                              vectorEffect="non-scaling-stroke"
+                            />
+                          );
+                        })}
                       </g>
                     ))}
                   </g>

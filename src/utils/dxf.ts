@@ -10,12 +10,18 @@ export interface PolylineShape {
   closed: boolean;
 }
 
+export interface CircleShape {
+  center: Point;
+  radius: number;
+}
+
 export interface ParsedDesign {
   id: string;
   name: string;
   width: number;
   height: number;
   polylines: PolylineShape[];
+  circles: CircleShape[];
   quantity: number;
 }
 
@@ -47,13 +53,13 @@ export async function parseDxfFile(file: File): Promise<ParsedDesign> {
   const drawing = parser.parseSync(text);
   const entities: any[] = drawing?.entities ?? [];
   const blocks: BlockDictionary = drawing?.blocks ?? {};
-  const rawPolylines = extractPolylines(entities, blocks, identityTransform);
+  const rawGeometry = extractGeometry(entities, blocks, identityTransform);
 
-  if (!rawPolylines.length) {
+  if (!rawGeometry.polylines.length && !rawGeometry.circles.length) {
     throw new Error('No drawable vectors were found in the DXF file.');
   }
 
-  const { bounds, polylines: normalizedPolylines } = normalizePolylines(rawPolylines);
+  const { bounds, polylines: normalizedPolylines, circles: normalizedCircles } = normalizeGeometry(rawGeometry);
 
   return {
     id: buildDesignId(),
@@ -61,21 +67,34 @@ export async function parseDxfFile(file: File): Promise<ParsedDesign> {
     width: Math.max(bounds.maxX - bounds.minX, MIN_LAYOUT_SIZE),
     height: Math.max(bounds.maxY - bounds.minY, MIN_LAYOUT_SIZE),
     polylines: normalizedPolylines,
+    circles: normalizedCircles,
     quantity: 1,
   };
 }
 
 export function normalizePolylines(polylines: PolylineShape[]) {
-  const bounds = getBounds(polylines);
-  const normalized = polylines.map((polyline) => ({
+  return normalizeGeometry({ polylines, circles: [] });
+}
+
+export function normalizeGeometry(geometry: { polylines: PolylineShape[]; circles?: CircleShape[] }) {
+  const circles = geometry.circles ?? [];
+  const bounds = getBounds(geometry.polylines, circles);
+  const normalizedPolylines = geometry.polylines.map((polyline) => ({
     closed: polyline.closed,
     points: polyline.points.map((point) => ({
       x: point.x - bounds.minX,
       y: point.y - bounds.minY,
     })),
   }));
+  const normalizedCircles = circles.map((circle) => ({
+    radius: circle.radius,
+    center: {
+      x: circle.center.x - bounds.minX,
+      y: circle.center.y - bounds.minY,
+    },
+  }));
 
-  return { bounds, polylines: normalized };
+  return { bounds, polylines: normalizedPolylines, circles: normalizedCircles };
 }
 
 export function buildDesignId() {
@@ -86,36 +105,51 @@ export function buildDesignId() {
   return `design-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function extractPolylines(
+function extractGeometry(
   entities: any[],
   blocks: BlockDictionary,
   transform: TransformMatrix,
-): PolylineShape[] {
+): { polylines: PolylineShape[]; circles: CircleShape[] } {
   const polylines: PolylineShape[] = [];
+  const circles: CircleShape[] = [];
 
   entities.forEach((entity) => {
     if (!entity) return;
     if (entity.type === 'INSERT') {
-      polylines.push(...expandInsert(entity, blocks, transform));
+      const expanded = expandInsert(entity, blocks, transform);
+      polylines.push(...expanded.polylines);
+      circles.push(...expanded.circles);
       return;
     }
 
-    entityToPolylines(entity).forEach((polyline) => {
+    const geometry = entityToGeometry(entity);
+    geometry.polylines.forEach((polyline) => {
       polylines.push(applyTransform(polyline, transform));
+    });
+    geometry.circles.forEach((circle) => {
+      const transformed = applyCircleTransform(circle, transform);
+      if (transformed.circle) {
+        circles.push(transformed.circle);
+      } else if (transformed.polyline) {
+        polylines.push(transformed.polyline);
+      }
     });
   });
 
-  return polylines.filter((polyline) => polyline.points.length >= 2);
+  return {
+    polylines: polylines.filter((polyline) => polyline.points.length >= 2),
+    circles: circles.filter((circle) => circle.radius > 0),
+  };
 }
 
 function expandInsert(entity: any, blocks: BlockDictionary, parentTransform: TransformMatrix) {
   const blockName = entity.name || entity.block || entity.blockName;
   if (!blockName) {
-    return [];
+    return { polylines: [], circles: [] };
   }
   const block = blocks[blockName];
   if (!block?.entities?.length) {
-    return [];
+    return { polylines: [], circles: [] };
   }
 
   const baseTransform = composeTransforms(
@@ -131,55 +165,58 @@ function expandInsert(entity: any, blocks: BlockDictionary, parentTransform: Tra
   const rowSpacing = entity.rowSpacing ?? 0;
   const columnSpacing = entity.columnSpacing ?? 0;
   const polylines: PolylineShape[] = [];
+  const circles: CircleShape[] = [];
 
   for (let row = 0; row < rows; row += 1) {
     for (let col = 0; col < cols; col += 1) {
       const offset = createTranslationTransform(col * columnSpacing, row * rowSpacing);
       const combined = composeTransforms(baseTransform, offset);
-      polylines.push(...extractPolylines(block.entities ?? [], blocks, combined));
+      const extracted = extractGeometry(block.entities ?? [], blocks, combined);
+      polylines.push(...extracted.polylines);
+      circles.push(...extracted.circles);
     }
   }
 
-  return polylines;
+  return { polylines, circles };
 }
 
-function entityToPolylines(entity: any): PolylineShape[] {
+function entityToGeometry(entity: any): { polylines: PolylineShape[]; circles: CircleShape[] } {
   switch (entity.type) {
     case 'LWPOLYLINE':
     case 'POLYLINE': {
       const vertices = entity.vertices ?? entity.points ?? [];
       const closed = Boolean(entity.closed || entity.shape || entity.isClosed);
       const polyline = buildPolylineFromVertices(vertices, closed);
-      return polyline ? [polyline] : [];
+      return { polylines: polyline ? [polyline] : [], circles: [] };
     }
     case 'LINE': {
       const startPoint = toPoint(entity.start ?? entity.vertices?.[0]);
       const endPoint = toPoint(entity.end ?? entity.vertices?.[1]);
       const points = [startPoint, endPoint].filter(isPoint) as Point[];
       return points.length >= 2
-        ? [
-            {
-              closed: false,
-              points,
-            },
-          ]
-        : [];
+        ? { polylines: [{ closed: false, points }], circles: [] }
+        : { polylines: [], circles: [] };
     }
-    case 'CIRCLE':
-      return [{ closed: true, points: approximateCircle(entity) }];
+    case 'CIRCLE': {
+      const circle = circleFromEntity(entity);
+      return circle ? { polylines: [], circles: [circle] } : { polylines: [], circles: [] };
+    }
     case 'ARC':
-      return [{ closed: false, points: approximateArc(entity) }];
+      return { polylines: [{ closed: false, points: approximateArc(entity) }], circles: [] };
     case 'ELLIPSE':
-      return [{ closed: Boolean(entity.closed), points: approximateEllipse(entity) }];
+      return { polylines: [{ closed: Boolean(entity.closed), points: approximateEllipse(entity) }], circles: [] };
     case 'SPLINE':
-      return [
-        {
-          closed: Boolean(entity.closed),
-          points: (entity.fitPoints ?? entity.controlPoints ?? []).map(toPoint).filter(isPoint) as Point[],
-        },
-      ];
+      return {
+        polylines: [
+          {
+            closed: Boolean(entity.closed),
+            points: (entity.fitPoints ?? entity.controlPoints ?? []).map(toPoint).filter(isPoint) as Point[],
+          },
+        ],
+        circles: [],
+      };
     default:
-      return [];
+      return { polylines: [], circles: [] };
   }
 }
 
@@ -197,7 +234,7 @@ function isPoint(candidate: Point | null): candidate is Point {
   return Boolean(candidate);
 }
 
-export function getBounds(polylines: PolylineShape[]): Bounds {
+export function getBounds(polylines: PolylineShape[], circles: CircleShape[] = []): Bounds {
   let minX = Number.POSITIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
   let maxX = Number.NEGATIVE_INFINITY;
@@ -211,6 +248,12 @@ export function getBounds(polylines: PolylineShape[]): Bounds {
       maxY = Math.max(maxY, point.y);
     });
   });
+  circles.forEach((circle) => {
+    minX = Math.min(minX, circle.center.x - circle.radius);
+    minY = Math.min(minY, circle.center.y - circle.radius);
+    maxX = Math.max(maxX, circle.center.x + circle.radius);
+    maxY = Math.max(maxY, circle.center.y + circle.radius);
+  });
 
   if (!isFinite(minX) || !isFinite(minY) || !isFinite(maxX) || !isFinite(maxY)) {
     throw new Error('Unable to determine vector bounds.');
@@ -219,9 +262,17 @@ export function getBounds(polylines: PolylineShape[]): Bounds {
   return { minX, minY, maxX, maxY };
 }
 
-function approximateCircle(entity: any): Point[] {
+function circleFromEntity(entity: any): CircleShape | null {
   const radius = entity.radius ?? entity.r ?? 0;
-  const center = entity.center ?? { x: 0, y: 0 };
+  const center = toPoint(entity.center ?? { x: 0, y: 0 });
+  if (!center || radius <= 0) {
+    return null;
+  }
+  return { center, radius };
+}
+
+function approximateCircle(circle: CircleShape): Point[] {
+  const { center, radius } = circle;
   const steps = 64;
   return Array.from({ length: steps }, (_, index) => {
     const angle = (index / steps) * Math.PI * 2;
@@ -379,6 +430,26 @@ function applyTransform(polyline: PolylineShape, transform: TransformMatrix) {
   return {
     ...polyline,
     points: polyline.points.map((point) => applyToPoint(transform, point)),
+  };
+}
+
+function applyCircleTransform(circle: CircleShape, transform: TransformMatrix) {
+  const center = applyToPoint(transform, circle.center);
+  const scaleX = Math.hypot(transform.a, transform.b);
+  const scaleY = Math.hypot(transform.c, transform.d);
+  const dot = transform.a * transform.c + transform.b * transform.d;
+
+  if (Math.abs(scaleX - scaleY) < EPSILON && Math.abs(dot) < EPSILON) {
+    return {
+      circle: {
+        center,
+        radius: circle.radius * scaleX,
+      },
+    };
+  }
+
+  return {
+    polyline: applyTransform({ closed: true, points: approximateCircle(circle) }, transform),
   };
 }
 

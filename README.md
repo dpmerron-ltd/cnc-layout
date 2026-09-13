@@ -52,7 +52,7 @@ Two options are available:
 
 ## How it Works
 
-- **Vector parsing** – DXF files are parsed via `dxf-parser` (tolerant mode) and SVG files are interpreted directly in the browser. Lines, polylines, circles, arcs, ellipses, splines, and SVG paths are converted into simplified polylines for rendering and measurement.
+- **Vector parsing** – DXF files are parsed via `dxf-parser` (tolerant mode) and SVG files are interpreted directly in the browser. DXF circles are preserved as circles for SVG export, while lines, polylines, arcs, ellipses, splines, and SVG paths are converted into simplified polylines for rendering and measurement.
 - **Arrangement** – A best-fit bin-packing engine (with automatic 90° rotation) respects quantities, spacing, and spills gracefully into additional beds only when the envelope is fully utilized.
 - **Rendering / Export** – Each bed is drawn as an SVG with a subtle grid. The layout view mirrors the colors used in the design list, and a single click exports every bed into one SVG file for downstream CAM review.
 
